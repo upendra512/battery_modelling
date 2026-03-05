@@ -10,7 +10,7 @@ The project separates **offline model characterization** from **embedded hardwar
 
 ### 1. Data Characterization (`/extract_parameters`)
 
-- **Tech**: Python (pandas, numpy), [batteryDAT](https://github.com/SamrudhNelli/batteryDAT) library
+- **Tech**: Python (pandas, numpy), [batteryDAT](https://github.com/ImperialCollegeLondon/batteryDAT) library
 - **Function**: Ingests `battery01.csv`, isolates BoL discharge cycle, extracts **First-Order Thevenin ECM parameters**:
 
 

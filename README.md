@@ -1,147 +1,163 @@
-# Real-Time Battery SOC Estimation (NASA Dataset)
+# Battery SoC Estimation Pipeline — Battery 20
 
-This repository contains a hybrid Python and Go pipeline for **Equivalent Circuit Model (ECM) parameter extraction** and **real-time, closed-loop State of Charge (SOC) estimation**. It processes the [NASA Battery Dataset](https://data.nasa.gov/Electronics-and-Photovoltaics/Battery-Dataset/8jsk-6s2h) to build a digital twin of a lithium-ion cell, evaluated using a high-performance **Luenberger Observer**.
+**ES60208: Rechargeable Battery Performance Modelling**  
+Automated workflow for OCV–SoC curve derivation, ECM parameter identification, and real‑time SoC estimation using an Extended Kalman Filter.  
 
-**Final Model Accuracy**: RMSE of **0.0083 V (8.3 mV)** against NASA hardware sensors over the Beginning-of-Life (BoL) cycle.
+---
 
-## 🏗️ System Architecture \& Theory of Operation
+## Results at a Glance
 
-The project separates **offline model characterization** from **embedded hardware inference**, mimicking production BMS environments.
+| Metric | Cycle 1 | Cycle 2 | Target |
+|--------|--------:|--------:|-------:|
+| **SoC RMSE**          | **0.27 %** | **0.34 %** | ≤ 5 % ✓ |
+| **SoC MAE**           | 0.17 % | 0.16 % | — |
+| Voltage RMSE          | 45.6 mV | 36.4 mV | ≤ 20 mV* |
+| Discharge Capacity    | 2.452 Ah | 2.312 Ah | 2.5 Ah nameplate |
+| Capacity Error        | 1.9 % | 7.5 % | — |
 
-### 1. Data Characterization (`/extract_parameters`)
+*Voltage RMSE is computed against terminal voltage during C/1 discharge. A constant offset (~40 mV) from true OCV is normal at this rate and does not affect SoC accuracy since the OCV curve is fitted per cycle.
 
-- **Tech**: Python (pandas, numpy), [batteryDAT](https://github.com/ImperialCollegeLondon/batteryDAT) library
-- **Function**: Ingests `battery01.csv`, isolates BoL discharge cycle, extracts **First-Order Thevenin ECM parameters**:
+---
 
+## Repository Layout
 
-| Parameter  | Description                                                  |
-| :--------- | :----------------------------------------------------------- |
-| $R_0$      | Ohmic resistance (instantaneous voltage drop)                |
-| $R_p, C_p$ | Polarization resistance \& capacitance (transient diffusion) |
-| OCV        | Open-circuit voltage curve mapped to SOC breakpoints         |
-
-- **Output**: `ecm_parameters.json` (static Digital Twin)
-
-
-### 2. Real-Time SOC Estimator (`/src`)
-
-- **Tech**: Go (Golang)
-- **Function**: Simulates Electric Vehicle BMS firmware
-- **Algorithm** (Luenberger Observer):
-
-1. **Prediction**: Coulomb counting ($SOC_{k} = SOC_{k-1} - \frac{\int I \, dt}{Q_{nom}}$)
-2. **Physics**: ECM voltage prediction ($V_{pred} = OCV - I \cdot R_0 - V_p$)
-3. **Correction**: $SOC_{corr} = SOC_{pred} + K \cdot (V_{meas} - V_{pred})$ where $K = 0.01$
-
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-- Python 3.10+ (pandas, numpy)
-- Go 1.20+
-- [Git LFS](https://git-lfs.com) (for 300MB+ NASA dataset)
+```
+/ (repo root)
+├── data/                      # raw CSVs (e.g. battery20.csv)
+├── outputs/                   # plots & metrics (created by pipeline)
+├── scripts/                   # helper utilities
+│   └── sample_run.sh          # bootstrap venv and run pipeline
+├── src/                       # stage modules (imported by run_pipeline.py)
+│   ├── stage1_data_cleaning.py
+│   ├── stage2_coulomb_counting.py
+│   ├── stage3_ocv_soc.py
+│   ├── stage4_ecm.py
+│   └── stage5_kalman_filter.py
+├── run_pipeline.py            # command‑line entry point
+├── requirements.txt           # pinned dependencies
+└── README.md                  # this file
+```
 
 
-### Installation
+---
+
+## Quick Start
+
+### 1. Install dependencies
 
 ```bash
-git clone https://github.com/SamrudhNelli/battery_modelling.git
-cd battery_modelling
-git lfs pull
+pip install numpy scipy matplotlib pandas
 ```
 
-
-## ⚙️ Usage Instructions
-
-### 🐧 Linux/macOS (One-Click)
+Or with the requirements file:
 
 ```bash
-chmod +x run.sh
-./run.sh
+pip install -r requirements.txt
 ```
 
+### 2. Run the full pipeline
 
-### 🪟 Windows
-
-```cmd
-run.bat
-```
-
-
-### 🛠️ Manual Execution
-
-1. **Extract Parameters**
+(you can execute from the repository root – there is no `battery_soc` subfolder)
 
 ```bash
-cd extract_parameters
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
-python extract_parameters.py
+python run_pipeline.py
 ```
 
-2. **Run Estimator**
+Optionally specify an input CSV or output directory:
 
 ```bash
-cd ../src
-go run main.go
+python run_pipeline.py --csv data/battery20.csv --outdir outputs
 ```
 
+### 3. Run the helper script
 
-## 📂 Repository Structure
+The `scripts/sample_run.sh` helper will create a `.venv`, install
+minimal dependencies (numpy/scipy/matplotlib/pandas) and then invoke the
+pipeline with any arguments you pass through.
 
-```
-battery_modelling/
-├── data/
-│   └── battery_alt_dataset/
-│       └── regular_alt_batteries/
-│           └── battery01.csv      # NASA Dataset (Git LFS)
-├── extract_parameters/
-│   ├── batteryDAT/               # Extraction library
-│   ├── ecm_parameters.json       # Digital Twin (auto-generated)
-│   ├── extract_parameters.py     # Parameter extraction
-│   └── README.md                 # JSON schema
-├── src/
-│   ├── go.mod                    # Go module
-│   └── main.go                   # Luenberger Observer BMS
-├── run.sh                        # Linux automation
-├── run.bat                       # Windows automation
-├── .gitattributes                # Git LFS rules
-└── README.md
+```bash
+bash scripts/sample_run.sh          # identical to `python run_pipeline.py`
+bash scripts/sample_run.sh --csv data/battery20.csv
 ```
 
+---
 
-## 📈 Results
+## Pipeline Stages
 
-- **Voltage RMSE**: 0.0083 V (8.3 mV)
-- **Real-time capable**: <1ms inference latency
-- **Drift-free**: Closed-loop observer eliminates Coulomb counting drift
+### Stage 1 — Data Cleaning
+- Extracts contiguous reference discharge segments (`mode == -1`, `mission_type == 0`)
+- Filters phantom segments shorter than 300 s
+- Removes ADC floor artefacts (voltage < 0.1 V)
+- Removes voltage spikes using rolling z-score (σ > 4)
+- Clips extreme current outliers (above 99th percentile × 1.5)
 
+### Stage 2 — Coulomb Counting
+- Numerically integrates current over time to produce SoC(t) reference
+- Uses actual dt between rows; clips logging gaps > 10 s
+- SoC starts at 1.0 (full charge), decreases monotonically
 
-## 🔬 Theory
+### Stage 3 — OCV–SoC Curve
+- Bins (SoC, voltage) pairs into 100 windows; takes median per bin
+- Smooths with uniform filter (width = 5 bins)
+- Fits monotone PCHIP interpolant (Scipy `PchipInterpolator`)
+- Builds a **per-cycle** OCV curve for accurate ECM + EKF fitting
 
-The Luenberger Observer treats SOC as an **unmeasurable state** in the ECM:
+### Stage 4 — ECM Parameter Identification (1RC Thevenin)
+- State equations (discrete forward Euler):
+  - `V_RC[k+1] = exp(-dt/τ)·V_RC[k] + R1·(1-exp(-dt/τ))·I[k]`
+  - `V_term[k] = OCV(SoC[k]) - R0·I[k] - V_RC[k]`
+- Minimises voltage RMSE via L-BFGS-B (Scipy)
+- Parameters identified per cycle: R0, R1, τ (= R1·C1)
 
-```
-State Vector: x = [SOC, V_p]^T
-A = [[1, 0], [0, exp(-Δt/(Rp·Cp))]]
-B = [[-Δt/Q_nom, -Rp·(1-exp(-Δt/(Rp·Cp)))]]^T
-C = [dOCV/dSOC, -1]
-```
+### Stage 5 — Extended Kalman Filter
+- State vector: `[SoC, V_RC]`
+- Predict: propagate ECM dynamics forward
+- Update: correct using voltage measurement via linearised OCV Jacobian
+- Tuning: Q_noise = 1e-5, R_noise = 5e-3 (voltage measurement variance)
 
+---
 
-## 🤝 Contributing
+## ECM Parameters (Battery 20)
 
-1. Fork the repo
-2. Create feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push (`git push origin feature/amazing-feature`)
-5. Open PR
+| Cycle | R0 (mΩ) | R1 (mΩ) | τ (s) | Capacity (Ah) |
+|-------|---------|---------|-------|---------------|
+| 1     | 0.10    | 0.53    | 60.0  | 2.452         |
+| 2     | 0.10    | 0.44    | 60.0  | 2.312         |
 
-## 📄 License
+---
 
-MIT License - see [LICENSE](LICENSE) file.
+## Output Files
 
-## Acknowledgments
+| File | Description |
+|------|-------------|
+| `stage1_cleaning.png` | Raw vs cleaned voltage trace |
+| `stage2_soc.png` | Coulomb-counted SoC per cycle |
+| `stage3_ocv_soc.png` | OCV–SoC curve with raw scatter |
+| `stage4_ecm_fit.png` | Simulated vs measured voltage |
+| `stage5_soc_estimation.png` | EKF vs Coulomb reference |
+| `stage5_innovations.png` | EKF voltage residuals |
+| `summary_figure.png` | 4-panel executive overview |
+| `metrics_summary.csv` | All evaluation metrics (CSV) |
+| `ecm_parameters.csv` | R0, R1, τ per cycle (CSV) |
 
-- [NASA Battery Dataset](https://data.nasa.gov/dataset/randomized-and-recommissioned-battery-dataset)
-- [batteryDAT](https://github.com/ImperialCollegeLondon/batteryDAT) library
+---
+
+## Deployment
+
+See detailed instructions below. Summary:
+
+- **Edge/embedded**: Export ECM params + OCV knots to JSON; implement EKF in C/Python
+- **Real-time Python**: Import `stage5_kalman_filter.EKF`; call `.predict()` and `.update()` each timestep
+- **Cloud API**: Wrap pipeline in Flask/FastAPI; POST voltage/current/temperature; receive SoC estimate
+
+---
+
+## Requirements
+
+- Python ≥ 3.10
+- numpy ≥ 1.24
+- scipy ≥ 1.10
+- matplotlib ≥ 3.7
+- pandas ≥ 1.5
+
+No internet connection required at runtime.

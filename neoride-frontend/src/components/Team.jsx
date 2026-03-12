@@ -1,11 +1,16 @@
 import SectionHeader from './SectionHeader'
+import upendraPhoto from '../data/upendra.jpeg'
+import samrudhPhoto from '../data/samrudh.png'
+import adarshPhoto from '../data/adarsh.jpg'
+import atharvPhoto from '../data/atharv.jpg'
+import krishPhoto from '../data/krishkumar.jpg'
 
 const teamMembers = [
-  { name: 'Upendra Singh',    role: 'Lead Developer',     color: '#00d4ff' },
-  { name: 'Samrudh Nelii',    role: 'Algorithm Engineer', color: '#7c3aed' },
-  { name: 'Adarsh Tipradi',   role: 'Data Scientist',     color: '#10b981' },
-  { name: 'Atharv Salodkar',  role: 'Systems Engineer',   color: '#f59e0b' },
-  { name: 'Krish Kumar',      role: 'Research Analyst',   color: '#ef4444' },
+  { name: 'Upendra Singh',    role: 'Lead Developer',     color: '#00d4ff', photo: upendraPhoto },
+  { name: 'Samrudh Nelii',    role: 'Algorithm Engineer', color: '#7c3aed', photo: samrudhPhoto },
+  { name: 'Adarsh Tipradi',   role: 'Data Scientist',     color: '#10b981', photo: adarshPhoto },
+  { name: 'Atharv Salodkar',  role: 'Systems Engineer',   color: '#f59e0b', photo: atharvPhoto },
+  { name: 'Krish Kumar',      role: 'Research Analyst',   color: '#ef4444', photo: krishPhoto },
 ]
 
 const tags = ['Battery Modelling','Signal Processing','State Estimation','Python','NASA Dataset','Li-ion BMS','Extended Kalman Filter','1RC ECM','L-BFGS-B','NumPy / SciPy']
@@ -48,17 +53,37 @@ export default function Team() {
               e.currentTarget.style.transform = 'translateY(0)'
               e.currentTarget.style.borderColor = 'rgba(0,212,255,0.15)'
             }}>
-              {/* Circular Photo Placeholder */}
+              {/* Circular Photo */}
               <div style={{
                 width: 90, height: 90, borderRadius: '50%',
                 margin: '0 auto 16px',
-                background: `linear-gradient(135deg, ${member.color}, #7c3aed)`,
                 border: '3px solid rgba(0,212,255,0.2)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: '2rem', color: '#fff',
                 boxShadow: `0 4px 20px ${member.color}40`,
+                overflow: 'hidden',
+                background: `linear-gradient(135deg, ${member.color}, #7c3aed)`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}>
-                {member.name.split(' ').map(n => n[0]).join('')}
+                <img
+                  src={member.photo}
+                  alt={member.name}
+                  onError={(e) => {
+                    // Fallback to initials if photo fails to load
+                    e.target.style.display = 'none'
+                    e.target.nextSibling.style.display = 'flex'
+                  }}
+                  style={{
+                    width: '100%', height: '100%',
+                    objectFit: 'cover',
+                  }}
+                />
+                <div style={{
+                  display: 'none',
+                  width: '100%', height: '100%',
+                  alignItems: 'center', justifyContent: 'center',
+                  fontSize: '2rem', color: '#fff', fontWeight: 700,
+                }}>
+                  {member.name.split(' ').map(n => n[0]).join('')}
+                </div>
               </div>
               <h4 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: 4 }}>
                 {member.name}
